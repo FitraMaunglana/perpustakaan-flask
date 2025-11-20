@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>📚 Perpustakaan Digital</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<h1>📚 Daftar Buku & Artikel</h1>
+<div class="container">
+{% for b in books %}
+  <div class="card">
+    <h3>{{ b.judul }}</h3>
+    <p><em>{{ b.penulis }}</em></p>
+    <p>{{ b.deskripsi[:100] }}...</p>
+    <a href="{{ url_for('detail', book_id=b.id) }}">Baca / Komentar</a>
+  </div>
+{% else %}
+  <p>Belum ada buku diunggah.</p>
+{% endfor %}
+</div>
+<a href="/admin" class="admin">Login Admin</a>
+</body>
+</html>

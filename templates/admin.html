@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Admin - Upload Buku</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<p style="text-align:right;">
+  Anda login sebagai <b>{{ user.username }}</b> |
+  <a href="{{ url_for('logout') }}">Logout</a>
+</p>
+
+<h2>📤 Upload Buku / Artikel</h2>
+
+<form method="POST" enctype="multipart/form-data">
+  <input type="text" name="judul" placeholder="Judul" required><br>
+  <input type="text" name="penulis" placeholder="Penulis" required><br>
+  <textarea name="deskripsi" placeholder="Deskripsi singkat" required></textarea><br>
+  <input type="file" name="file" accept=".pdf" required><br>
+  <button type="submit">Upload</button>
+</form>
+
+{% with messages = get_flashed_messages() %}
+  {% if messages %}
+    <ul class="flash">{% for msg in messages %}<li>{{ msg }}</li>{% endfor %}</ul>
+  {% endif %}
+{% endwith %}
+
+<hr>
+<h3>📚 Daftar Buku</h3>
+<ul>
+{% for b in books %}
+  <li>{{ b.judul }} - {{ b.penulis }} ({{ b.filename }})</li>
+{% endfor %}
+</ul>
+<a href="/">⬅️ Kembali ke Halaman Utama</a>
+</body>
+</html>

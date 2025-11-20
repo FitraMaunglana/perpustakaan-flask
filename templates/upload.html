@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Unggah File (Admin)</h2>
+<form method="post" enctype="multipart/form-data" class="form">
+  <label>Judul
+    <input type="text" name="title" placeholder="Judul buku atau artikel" />
+  </label>
+  <label>Deskripsi
+    <textarea name="description" rows="4" placeholder="Deskripsi singkat"></textarea>
+  </label>
+  <label>File PDF
+    <input type="file" name="file" accept="application/pdf" required />
+  </label>
+  <p><button class="btn primary" type="submit">Unggah</button></p>
+</form>
+{% endblock %}
