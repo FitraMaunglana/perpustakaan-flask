@@ -1,8 +1,11 @@
 import os
+import re
 from flask import Flask, render_template, request, redirect, url_for, send_from_directory, flash
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 from werkzeug.utils import secure_filename
+from pdf2image import convert_from_path   # <--- TAMBAHAN
+from PIL import Image
 
 # === Konfigurasi dasar ===
 app = Flask(__name__)
@@ -71,7 +74,13 @@ def detail(book_id):
 def download(filename):
     return send_from_directory(app.config['UPLOAD_FOLDER'], filename, as_attachment=True)
 
-# === Login & Logout ===
+
+@app.route('/uploads/raw/<filename>')
+def raw_upload(filename):
+    # serve the PDF inline (no Content-Disposition: attachment)
+    return send_from_directory(app.config['UPLOAD_FOLDER'], filename, as_attachment=False)
+
+# === LOGIN ===
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
@@ -93,7 +102,7 @@ def logout():
     flash('Anda telah logout.')
     return redirect(url_for('index'))
 
-# === Admin upload ===
+# === ADMIN UPLOAD ===
 @app.route('/admin', methods=['GET', 'POST'])
 @login_required
 def admin():
@@ -117,7 +126,48 @@ def admin():
     books = Book.query.all()
     return render_template('admin.html', books=books, user=current_user)
 
-# === Inisialisasi DB & buat akun admin ===
+
+# =================================================================
+# ===  Fitur Flipbook Python-only (PDF → PNG otomatis)           ===
+# =================================================================
+@app.route('/book/<int:book_id>/flip')
+def flipbook(book_id):
+    book = Book.query.get_or_404(book_id)
+
+    pdf_path = os.path.join(app.config['UPLOAD_FOLDER'], book.filename)
+    output_dir = f"static/flipbook/{book_id}"
+
+    os.makedirs(output_dir, exist_ok=True)
+
+    # Render PDF → PNG sekali saja (resize jika terlalu lebar)
+    if not os.listdir(output_dir):
+        # lower dpi for reasonable size, then enforce max width
+        try:
+            pages = convert_from_path(pdf_path, dpi=120, poppler_path='/usr/bin')
+        except Exception as e:
+            app.logger.exception('Failed to render PDF to images')
+            raise
+
+        max_width = 1200
+        for i, page in enumerate(pages, start=1):
+            # `page` is a PIL Image
+            if page.width > max_width:
+                ratio = max_width / page.width
+                new_h = int(page.height * ratio)
+                page = page.resize((max_width, new_h), resample=Image.LANCZOS)
+            page.save(f"{output_dir}/page_{i}.png", "PNG")
+
+    # sort pages numerically (page_1.png, page_2.png, ...)
+    def _page_key(name):
+        m = re.search(r'page_(\d+)\.png$', name)
+        return int(m.group(1)) if m else 0
+
+    images = sorted(os.listdir(output_dir), key=_page_key)
+
+    return render_template("flip_python.html", book=book, images=images, book_id=book_id)
+
+
+# === INIT DB ===
 with app.app_context():
     db.create_all()
     if not User.query.filter_by(username='minku').first():
@@ -127,3 +177,9 @@ with app.app_context():
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
+
+
+@app.context_processor
+def inject_current_year():
+    from datetime import datetime
+    return {'current_year': datetime.utcnow().year}

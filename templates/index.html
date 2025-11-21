@@ -12,7 +12,7 @@
     <h3>{{ b.judul }}</h3>
     <p><em>{{ b.penulis }}</em></p>
     <p>{{ b.deskripsi[:100] }}...</p>
-    <a href="{{ url_for('detail', book_id=b.id) }}">Baca / Komentar</a>
+    <a href="{{ url_for('flipbook', book_id=b.id) }}">Baca / Komentar</a>
   </div>
 {% else %}
   <p>Belum ada buku diunggah.</p>

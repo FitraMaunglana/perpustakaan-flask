@@ -1,31 +1,158 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <title>{{ book.judul }}</title>
-    <link rel="stylesheet" href="/static/style.css">
-</head>
-<body>
-<h2>{{ book.judul }}</h2>
-<p><em>{{ book.penulis }}</em></p>
-<p>{{ book.deskripsi }}</p>
-<a href="{{ url_for('download', filename=book.filename) }}">⬇️ Unduh PDF</a>
+{% extends "base.html" %}
+{% block content %}
+<article class="book-detail">
+  <div class="book-meta">
+    <h2>{{ book.judul }}</h2>
+    <p class="meta"><em>{{ book.penulis }}</em></p>
+    <p>{{ book.deskripsi }}</p>
+    <p><a class="btn" href="{{ url_for('download', filename=book.filename) }}">⬇️ Unduh PDF</a></p>
+  </div>
 
-<hr>
-<h3>Komentar</h3>
-<ul>
-{% for c in comments %}
-  <li><b>{{ c.nama }}</b>: {{ c.isi }}</li>
-{% else %}
-  <p>Belum ada komentar.</p>
-{% endfor %}
-</ul>
+  <div class="viewer-toolbar">
+    <div class="viewer-controls">
+      <button id="prev" class="btn">◀ Sebelumnya</button>
+      <button id="next" class="btn">Berikutnya ▶</button>
+      <span id="page-info">- / -</span>
+      <label class="zoom">Zoom <input id="zoom" type="range" min="50" max="200" value="100"></label>
+    </div>
+  </div>
 
-<form method="POST">
-  <input type="text" name="nama" placeholder="Nama" required><br>
-  <textarea name="isi" placeholder="Tulis komentar..." required></textarea><br>
-  <button type="submit">Kirim</button>
-</form>
+  <div class="flipbook-wrap">
+    <div id="flipbook" class="flipbook">
+      <div class="flip-page front"><canvas id="canvas-front"></canvas></div>
+      <div class="flip-page back"><canvas id="canvas-back"></canvas></div>
+    </div>
+  </div>
 
-<a href="/">⬅️ Kembali</a>
-</body>
-</html>
+  <p class="fallback">Jika pembaca tidak muncul, buka flipbook server-side: <a class="btn" href="{{ url_for('flipbook', book_id=book.id) }}">Buka Flip (Server)</a></p>
+
+  <noscript>
+    <div class="nojs">Javascript dimatikan — gunakan link Flip (Server) di atas untuk membaca PDF.</div>
+  </noscript>
+
+  <section class="comments">
+    <h3>Komentar</h3>
+    <ul>
+    {% for c in comments %}
+      <li><b>{{ c.nama }}</b>: {{ c.isi }}</li>
+    {% else %}
+      <p>Belum ada komentar.</p>
+    {% endfor %}
+    </ul>
+
+    <form method="POST" class="form">
+      <input type="text" name="nama" placeholder="Nama" required>
+      <textarea name="isi" placeholder="Tulis komentar..." required></textarea>
+      <button class="btn primary" type="submit">Kirim</button>
+    </form>
+  </section>
+
+  <!-- PDF.js from CDN -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.18.313/pdf.min.js"></script>
+  <script>
+    const url = '{{ url_for("raw_upload", filename=book.filename) }}';
+    const pdfjsLib = window['pdfjs-dist/build/pdf'];
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.18.313/pdf.worker.min.js';
+
+    let pdfDoc = null;
+    let currentPage = 1;
+    let totalPages = 0;
+    let scale = 1.0;
+
+    const canvasFront = document.getElementById('canvas-front');
+    const canvasBack = document.getElementById('canvas-back');
+    const pageInfo = document.getElementById('page-info');
+    const prevBtn = document.getElementById('prev');
+    const nextBtn = document.getElementById('next');
+    const flipbook = document.getElementById('flipbook');
+    const zoom = document.getElementById('zoom');
+
+    function renderPageToCanvas(pageNumber, canvas) {
+      return pdfDoc.getPage(pageNumber).then(function(page) {
+        // compute scale so page fits the flipbook container width
+        const containerWidth = Math.max(300, flipbook.clientWidth || 680);
+        // get original viewport at scale 1 to compute intrinsic width
+        const baseViewport = page.getViewport({ scale: 1.0 });
+        // apply user zoom factor (scale variable is fraction like 1.0)
+        const computedScale = (containerWidth - 40) / baseViewport.width * scale;
+        const viewport = page.getViewport({ scale: computedScale });
+        canvas.width = Math.round(viewport.width);
+        canvas.height = Math.round(viewport.height);
+        canvas.style.width = '100%';
+        const ctx = canvas.getContext('2d');
+        const renderContext = { canvasContext: ctx, viewport: viewport };
+        return page.render(renderContext).promise;
+      });
+    }
+
+    function showInitial() {
+      // render first page to front
+      renderPageToCanvas(currentPage, canvasFront).then(()=>{
+        pageInfo.textContent = `${currentPage} / ${totalPages}`;
+      }).catch(console.error);
+    }
+
+    function doFlip(nextPage, direction) {
+      // render next page to back canvas first
+      renderPageToCanvas(nextPage, canvasBack).then(()=>{
+        // prepare classes
+        if (direction === 'next') {
+          flipbook.classList.add('flip-next');
+        } else {
+          flipbook.classList.add('flip-prev');
+        }
+        // after animation, swap canvases
+        const onEnd = () => {
+          flipbook.classList.remove('flip-next','flip-prev');
+          // copy back canvas content to front canvas
+          const fctx = canvasFront.getContext('2d');
+          fctx.clearRect(0,0,canvasFront.width,canvasFront.height);
+          canvasFront.width = canvasBack.width;
+          canvasFront.height = canvasBack.height;
+          fctx.drawImage(canvasBack,0,0);
+          currentPage = nextPage;
+          pageInfo.textContent = `${currentPage} / ${totalPages}`;
+          flipbook.removeEventListener('transitionend', onEnd);
+        };
+        // listen for transition end on flipbook
+        flipbook.addEventListener('transitionend', onEnd);
+        // trigger reflow then add active class to start animation
+        void flipbook.offsetWidth;
+        flipbook.classList.add('flipping');
+      }).catch(console.error);
+    }
+
+    prevBtn.addEventListener('click', function(){
+      if (currentPage <= 1) return;
+      const nextPage = currentPage - 1;
+      doFlip(nextPage, 'prev');
+    });
+    nextBtn.addEventListener('click', function(){
+      if (currentPage >= totalPages) return;
+      const nextPage = currentPage + 1;
+      doFlip(nextPage, 'next');
+    });
+
+    zoom.addEventListener('input', function(){
+      scale = parseFloat(zoom.value) / 100.0;
+      if (!pdfDoc) return;
+      // re-render current page on front
+      renderPageToCanvas(currentPage, canvasFront);
+    });
+
+    // load pdf
+    pdfjsLib.getDocument(url).promise.then(function(pdf){
+      pdfDoc = pdf;
+      totalPages = pdf.numPages;
+      showInitial();
+    }).catch(function(err){
+      console.error('PDF.js gagal:', err);
+      // fallback: tampilkan embed PDF asli dan link ke flip server-side
+      document.getElementById('flipbook').innerHTML = `
+        <div class="pdf-embed"><embed src="${url}" type="application/pdf" width="100%" height="640px"></div>
+        <p>Jika embed tidak bekerja, buka <a href="{{ url_for('flipbook', book_id=book.id) }}">Flip (Server)</a></p>
+      `;
+    });
+  </script>
+
+{% endblock %}

@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>{{ book.judul }} - Flipbook</title>
+    <style>
+        body { text-align: center; background: #f4f4f4; font-family: Arial; }
+        img { max-width: 80%; border: 1px solid #999; box-shadow: 0px 0px 8px #ccc; margin-top: 20px; }
+        .controls { margin: 15px; }
+        button { padding: 10px 20px; font-size: 16px; }
+    </style>
+</head>
+<body>
+
+<h2>{{ book.judul }}</h2>
+
+<div class="controls">
+    <button onclick="prevPage()">⬅️ Sebelumnya</button>
+    <button onclick="nextPage()">➡️ Berikutnya</button>
+</div>
+
+<img id="page" src="/static/flipbook/{{ book_id }}/{{ images[0] }}">
+
+<script>
+    let pages = {{ images|tojson }};
+    let index = 0;
+    let base = "/static/flipbook/{{ book_id }}/";
+
+    function nextPage() {
+        if (index < pages.length - 1) {
+            index++;
+            document.getElementById("page").src = base + pages[index];
+        }
+    }
+
+    function prevPage() {
+        if (index > 0) {
+            index--;
+            document.getElementById("page").src = base + pages[index];
+        }
+    }
+</script>
+
+</body>
+</html>

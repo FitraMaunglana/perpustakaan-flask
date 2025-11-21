@@ -25,3 +25,41 @@ nav a{color:var(--muted);margin-left:16px;text-decoration:none}
 footer{padding:24px 0;color:var(--muted);text-align:center}
 .flashes{list-style:none;padding:0;margin:8px 0 16px}
 .flashes li{background:rgba(255,255,255,0.03);padding:8px;border-radius:8px}
+
+/* === PDF Viewer styles === */
+.book-detail{display:grid;grid-template-columns:1fr 420px;gap:20px;align-items:start}
+.book-meta{padding:12px}
+.viewer-toolbar{grid-column:1 / -1;margin:12px 0}
+.viewer-controls{display:flex;gap:8px;align-items:center}
+.pdf-viewer{background:var(--glass);padding:12px;border-radius:12px;overflow:auto;max-height:720px}
+.page-wrap{margin:10px auto;display:flex;justify-content:center}
+.page-wrap canvas{box-shadow:0 6px 22px rgba(2,6,23,0.6);border-radius:6px;max-width:100%}
+.single-page{display:block;margin:0 auto;max-width:100%;height:auto}
+.viewer-controls .btn{padding:6px 10px}
+.zoom input{vertical-align:middle}
+.error{color:#ffaaaa;padding:12px}
+
+/* Responsive: stack on small screens */
+@media (max-width:900px){
+  .book-detail{grid-template-columns:1fr}
+  .pdf-viewer{max-height:520px}
+}
+
+/* === Flipbook styles === */
+.flipbook-wrap{display:flex;justify-content:center;align-items:center;padding:12px}
+.flipbook{max-width:900px;width:100%;height:auto;min-height:480px;position:relative;perspective:2000px;transition:transform 0.8s ease}
+.flipbook .flip-page{position:absolute;top:0;left:50%;transform:translateX(-50%);width:100%;height:100%;backface-visibility:hidden;border-radius:8px;overflow:hidden;display:flex;align-items:center;justify-content:center}
+.flipbook .front{z-index:2;background:var(--glass)}
+.flipbook .back{transform:rotateY(180deg);background:var(--glass)}
+.flipbook canvas{max-width:100%;height:auto;display:block}
+
+/* ensure server-side flip images also fit */
+.flip_python_img, .flip_python_img img {max-width:90%;max-height:80vh;height:auto}
+
+/* flipping states */
+.flipbook.flipping.flip-next{transform:rotateY(-180deg)}
+.flipbook.flipping.flip-prev{transform:rotateY(180deg)}
+
+@media (max-width:900px){
+  .flipbook{width:100%;height:60vh}
+}
